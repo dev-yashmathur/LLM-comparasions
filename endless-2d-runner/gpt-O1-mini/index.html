@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <meta charset="UTF-8">
+        <title>2D Endless Runner</title>
+        <style>
+            body {
+                margin: 0;
+                overflow: hidden;
+                background-color: #f0f0f0;
+                font-family: Arial, sans-serif;
+            }
+
+            canvas {
+                display: block;
+                background-color: #ffffff;
+            }
+
+            #gameOver {
+                position: absolute;
+                top: 40%;
+                width: 100%;
+                text-align: center;
+                font-size: 48px;
+                color: red;
+                display: none;
+            }
+
+            #score {
+                position: absolute;
+                top: 10px;
+                left: 50%;
+                transform: translateX(-50%);
+                font-size: 24px;
+                color: #333;
+            }
+        </style>
+    </head>
+
+    <body>
+
+        <canvas id="gameCanvas"></canvas>
+        <div id="score">Score: 0</div>
+        <div id="gameOver">Game Over<br>Press F5 to Restart</div>
+
+        <script>
+            // Get Canvas and Context
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Set Canvas to Full Window Size
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            // Game Variables
+            let gameOver = false;
+            let score = 0;
+            const gravity = 0.6;
+
+            // Player Class
+            class Player {
+                constructor() {
+                    this.width = 50;
+                    this.height = 50;
+                    this.x = 100;
+                    this.y = canvas.height - this.height - 100; // Ground level
+                    this.vy = 0;
+                    this.jumpForce = 15;
+                    this.isJumping = false;
+                    this.isDucking = false;
+                    this.originalHeight = this.height;
+                }
+
+                update() {
+                    // Apply gravity
+                    this.vy += gravity;
+                    this.y += this.vy;
+
+                    // Ground Collision
+                    if (this.y + this.height >= canvas.height - 100) {
+                        this.y = canvas.height - 100 - this.height;
+                        this.vy = 0;
+                        this.isJumping = false;
+                    }
+                }
+
+                jump() {
+                    if (!this.isJumping) {
+                        this.vy = -this.jumpForce;
+                        this.isJumping = true;
+                    }
+                }
+
+                duck() {
+                    if (!this.isDucking && !this.isJumping) {
+                        this.height = this.originalHeight / 2;
+                        this.isDucking = true;
+                    }
+                }
+
+                standUp() {
+                    if (this.isDucking) {
+                        this.height = this.originalHeight;
+                        this.isDucking = false;
+                    }
+                }
+
+                draw() {
+                    ctx.fillStyle = '#007bff';
+                    ctx.fillRect(this.x, this.y, this.width, this.height);
+                }
+            }
+
+            // Obstacle Class
+            class Obstacle {
+                constructor() {
+                    this.width = 50;
+                    this.height = Math.random() > 0.5 ? 50 : 100; // Random height
+                    this.x = canvas.width;
+                    this.y = canvas.height - 100 - this.height;
+                    this.speed = 6;
+                }
+
+                update() {
+                    this.x -= this.speed;
+                }
+
+                draw() {
+                    ctx.fillStyle = '#dc3545';
+                    ctx.fillRect(this.x, this.y, this.width, this.height);
+                }
+            }
+
+            // Initialize Player and Obstacles
+            const player = new Player();
+            const obstacles = [];
+
+            // Handle Input
+            const keys = {};
+
+            window.addEventListener('keydown', function (e) {
+                keys[e.code] = true;
+
+                if ((e.code === 'ArrowUp' || e.code === 'Space') && !gameOver) {
+                    player.jump();
+                }
+
+                if (e.code === 'ArrowDown' && !gameOver) {
+                    player.duck();
+                }
+            });
+
+            window.addEventListener('keyup', function (e) {
+                keys[e.code] = false;
+
+                if (e.code === 'ArrowDown') {
+                    player.standUp();
+                }
+            });
+
+            // Handle Window Resize
+            window.addEventListener('resize', function () {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                player.y = canvas.height - player.height - 100;
+                obstacles.forEach(ob => ob.y = canvas.height - 100 - ob.height);
+            });
+
+            // Collision Detection
+            function detectCollision(player, obstacle) {
+                return (
+                    player.x < obstacle.x + obstacle.width &&
+                    player.x + player.width > obstacle.x &&
+                    player.y < obstacle.y + obstacle.height &&
+                    player.y + player.height > obstacle.y
+                );
+            }
+
+            // Spawn Obstacles
+            function spawnObstacle() {
+                if (gameOver) return;
+                const obstacle = new Obstacle();
+                obstacles.push(obstacle);
+                // Random interval between 1.5 to 3 seconds
+                const time = Math.random() * 1500 + 1500;
+                setTimeout(spawnObstacle, time);
+            }
+
+            // Start Spawning Obstacles
+            spawnObstacle();
+
+            // Game Loop
+            function gameLoop() {
+                if (gameOver) return;
+
+                // Clear Canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Draw Ground
+                ctx.fillStyle = '#28a745';
+                ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
+
+                // Update and Draw Player
+                player.update();
+                player.draw();
+
+                // Update and Draw Obstacles
+                for (let i = obstacles.length - 1; i >= 0; i--) {
+                    const ob = obstacles[i];
+                    ob.update();
+                    ob.draw();
+
+                    // Check Collision
+                    if (detectCollision(player, ob)) {
+                        endGame();
+                    }
+
+                    // Remove Off-Screen Obstacles
+                    if (ob.x + ob.width < 0) {
+                        obstacles.splice(i, 1);
+                    }
+                }
+
+                // Update Score
+                score += 1;
+                document.getElementById('score').innerText = `Score: ${score}`;
+
+                // Request Next Frame
+                requestAnimationFrame(gameLoop);
+            }
+
+            // End Game
+            function endGame() {
+                gameOver = true;
+                document.getElementById('gameOver').style.display = 'block';
+            }
+
+            // Start the Game Loop
+            gameLoop();
+        </script>
+
+    </body>
+
+</html>

@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>2D Endless Runner</title>
+        <style>
+            canvas {
+                border: 1px solid black;
+            }
+        </style>
+    </head>
+
+    <body>
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <script>
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Game variables
+            let gameLoop;
+            let player;
+            let obstacles = [];
+            let score = 0;
+            let gameSpeed = 5;
+
+            // Player object
+            class Player {
+                constructor() {
+                    this.width = 40;
+                    this.height = 50;
+                    this.x = 50;
+                    this.y = canvas.height - this.height;
+                    this.jumping = false;
+                    this.ducking = false;
+                    this.jumpHeight = 100;
+                    this.jumpCount = 0;
+                }
+
+                draw() {
+                    ctx.fillStyle = 'blue';
+                    ctx.fillRect(this.x, this.y, this.width, this.height);
+                }
+
+                jump() {
+                    if (!this.jumping && !this.ducking) {
+                        this.jumping = true;
+                        this.jumpCount = 0;
+                    }
+                }
+
+                duck() {
+                    if (!this.jumping) {
+                        this.ducking = true;
+                        this.height = 25;
+                        this.y = canvas.height - this.height;
+                    }
+                }
+
+                stand() {
+                    this.ducking = false;
+                    this.height = 50;
+                    this.y = canvas.height - this.height;
+                }
+
+                update() {
+                    if (this.jumping) {
+                        if (this.jumpCount < 10) {
+                            this.y -= this.jumpHeight / 10;
+                        } else if (this.jumpCount >= 10 && this.jumpCount < 20) {
+                            this.y += this.jumpHeight / 10;
+                        } else {
+                            this.jumping = false;
+                            this.y = canvas.height - this.height;
+                        }
+                        this.jumpCount++;
+                    }
+                }
+            }
+
+            // Obstacle object
+            class Obstacle {
+                constructor(type) {
+                    this.type = type; // 'high' or 'low'
+                    this.width = 20;
+                    this.height = type === 'high' ? 40 : 20;
+                    this.x = canvas.width;
+                    this.y = canvas.height - this.height;
+                }
+
+                draw() {
+                    ctx.fillStyle = 'red';
+                    ctx.fillRect(this.x, this.y, this.width, this.height);
+                }
+
+                update() {
+                    this.x -= gameSpeed;
+                }
+            }
+
+            // Game functions
+            function init() {
+                player = new Player();
+                obstacles = [];
+                score = 0;
+                gameSpeed = 5;
+            }
+
+            function spawnObstacle() {
+                const type = Math.random() < 0.5 ? 'high' : 'low';
+                obstacles.push(new Obstacle(type));
+            }
+
+            function drawScore() {
+                ctx.fillStyle = 'black';
+                ctx.font = '20px Arial';
+                ctx.fillText(`Score: ${score}`, 10, 30);
+            }
+
+            function checkCollision(player, obstacle) {
+                return (
+                    player.x < obstacle.x + obstacle.width &&
+                    player.x + player.width > obstacle.x &&
+                    player.y < obstacle.y + obstacle.height &&
+                    player.y + player.height > obstacle.y
+                );
+            }
+
+            function gameOver() {
+                clearInterval(gameLoop);
+                ctx.fillStyle = 'black';
+                ctx.font = '40px Arial';
+                ctx.fillText('Game Over', canvas.width / 2 - 100, canvas.height / 2);
+                ctx.fillText(`Score: ${score}`, canvas.width / 2 - 70, canvas.height / 2 + 50);
+            }
+
+            function update() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                player.update();
+                player.draw();
+
+                if (Math.random() < 0.02) {
+                    spawnObstacle();
+                }
+
+                for (let i = obstacles.length - 1; i >= 0; i--) {
+                    obstacles[i].update();
+                    obstacles[i].draw();
+
+                    if (checkCollision(player, obstacles[i])) {
+                        gameOver();
+                        return;
+                    }
+
+                    if (obstacles[i].x + obstacles[i].width < 0) {
+                        obstacles.splice(i, 1);
+                        score++;
+                    }
+                }
+
+                drawScore();
+
+                gameSpeed += 0.001;
+            }
+
+            function startGame() {
+                init();
+                gameLoop = setInterval(update, 1000 / 60); // 60 FPS
+            }
+
+            // Event listeners
+            document.addEventListener('keydown', (event) => {
+                if (event.code === 'Space') {
+                    player.jump();
+                } else if (event.code === 'ArrowDown') {
+                    player.duck();
+                }
+            });
+
+            document.addEventListener('keyup', (event) => {
+                if (event.code === 'ArrowDown') {
+                    player.stand();
+                }
+            });
+
+            // Start the game
+            startGame();
+        </script>
+    </body>
+
+</html>

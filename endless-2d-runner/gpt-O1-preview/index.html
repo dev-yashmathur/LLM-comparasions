@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+
+    <head>
+        <title>2D Endless Runner Game</title>
+        <style>
+            canvas {
+                background: #f0f0f0;
+                display: block;
+                margin: 0 auto;
+            }
+        </style>
+    </head>
+
+    <body>
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <script>
+            // Get canvas and context
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Game settings
+            let gameSpeed = 5;
+            let gravity = 0.5;
+            let obstacles = [];
+            let keys = {};
+
+            // Player object
+            const player = {
+                x: 50,
+                y: canvas.height - 100,
+                width: 50,
+                height: 50,
+                dy: 0,
+                isJumping: false,
+                isDucking: false,
+                draw: function () {
+                    ctx.fillStyle = 'blue';
+                    if (this.isDucking) {
+                        ctx.fillRect(this.x, this.y + this.height / 2, this.width, this.height / 2);
+                    } else {
+                        ctx.fillRect(this.x, this.y, this.width, this.height);
+                    }
+                },
+                update: function () {
+                    // Jumping logic
+                    if (this.isJumping) {
+                        this.dy += gravity;
+                        this.y += this.dy;
+                        if (this.y >= canvas.height - this.height) {
+                            this.y = canvas.height - this.height;
+                            this.dy = 0;
+                            this.isJumping = false;
+                        }
+                    }
+                    // Ducking logic
+                    if (this.isDucking && !this.isJumping) {
+                        this.height = 25;
+                    } else {
+                        this.height = 50;
+                    }
+                    this.draw();
+                }
+            };
+
+            // Obstacle class
+            class Obstacle {
+                constructor() {
+                    this.x = canvas.width;
+                    this.y = canvas.height - 50;
+                    this.width = 50;
+                    this.height = 50;
+                    this.color = 'red';
+                    this.dx = -gameSpeed;
+                }
+
+                draw() {
+                    ctx.fillStyle = this.color;
+                    ctx.fillRect(this.x, this.y, this.width, this.height);
+                }
+
+                update() {
+                    this.x += this.dx;
+                    this.draw();
+                }
+            }
+
+            // Spawn obstacles at intervals
+            function spawnObstacle() {
+                let obstacle = new Obstacle();
+                obstacles.push(obstacle);
+            }
+
+            let obstacleTimer = 0;
+            let obstacleInterval = 2000;
+
+            function handleObstacles(deltaTime) {
+                obstacleTimer += deltaTime;
+                if (obstacleTimer > obstacleInterval) {
+                    spawnObstacle();
+                    obstacleTimer = 0;
+                }
+                obstacles.forEach((obstacle, index) => {
+                    obstacle.update();
+                    // Remove obstacles that are off-screen
+                    if (obstacle.x + obstacle.width < 0) {
+                        obstacles.splice(index, 1);
+                    }
+                    // Collision detection
+                    if (player.x < obstacle.x + obstacle.width &&
+                        player.x + player.width > obstacle.x &&
+                        player.y < obstacle.y + obstacle.height &&
+                        player.y + player.height > obstacle.y) {
+                        alert('Game Over');
+                        window.location.reload();
+                    }
+                });
+            }
+
+            let lastTime = 0;
+
+            // Game loop
+            function animate(timeStamp) {
+                let deltaTime = timeStamp - lastTime;
+                lastTime = timeStamp;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                player.update();
+                handleObstacles(deltaTime);
+
+                requestAnimationFrame(animate);
+            }
+
+            animate(0);
+
+            // Event listeners for player input
+            document.addEventListener('keydown', function (e) {
+                keys[e.code] = true;
+                if (e.code === 'Space' || e.code === 'ArrowUp') {
+                    if (!player.isJumping) {
+                        player.isJumping = true;
+                        player.dy = -10;
+                    }
+                }
+                if (e.code === 'ArrowDown') {
+                    player.isDucking = true;
+                }
+            });
+
+            document.addEventListener('keyup', function (e) {
+                keys[e.code] = false;
+                if (e.code === 'ArrowDown') {
+                    player.isDucking = false;
+                }
+            });
+        </script>
+    </body>
+
+</html>
